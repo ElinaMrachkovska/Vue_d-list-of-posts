@@ -16,16 +16,20 @@ const posts = ref<Post[]>([]);
 const selectedPost = ref<Post | null>(null);
 const isLoadingPosts = ref(false);
 const isAddingPost = ref(false); // Стан для показу форми
+const postsError = ref<string | null>(null); // Текст помилки при завантаженні постів
 
 const handleLogin = async (user: User) => {
   currentUser.value = user;
   isLoadingPosts.value = true;
+  postsError.value = null; // очистити попередні помилки
   selectedPost.value = null;
   
   try {
     const response = await client.get<Post[]>(`/posts?userId=${user.id}`);
     posts.value = response.data;
   } catch (error) {
+    // Встановлюємо людський, зрозумілий текст для UI і логируемо один раз
+    postsError.value = 'Failed to load posts. Please try again later.';
     console.error('Error loading posts', error);
   } finally {
     isLoadingPosts.value = false;
@@ -79,7 +83,11 @@ const handlePostAdded = (newPost: Post) => {
                   @cancel="isAddingPost = false"
                 />
 
-                <div v-if="posts.length === 0 && !isAddingPost" class="notification is-warning">
+                <div v-if="postsError && !isAddingPost" class="notification is-danger">
+                  {{ postsError }}
+                </div>
+
+                <div v-else-if="posts.length === 0 && !isAddingPost" class="notification is-warning">
                   No posts yet.
                 </div>
 

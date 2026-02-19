@@ -6,5 +6,5 @@ git init
 git checkout main || git checkout -b main
 git add -A
 git commit -m 'deploy'
-git push -f https://github.com/ElinaMrachkovska/vue-dynamic-list-of-posts.git main:gh-pages
+git push -f https://github.com/ElinaMrachkovska/Vue_d-list-of-posts.git main:gh-pages
 cd -

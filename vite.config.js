@@ -6,7 +6,7 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/vue-dynamic-list-of-posts/',
+  base: '/Vue_d-list-of-posts/',
   plugins: [
     vue(),
     vueDevTools(),

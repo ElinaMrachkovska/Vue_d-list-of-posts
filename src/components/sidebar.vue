@@ -1,43 +1,48 @@
 <script setup lang="ts">
-import PostPreview from './postPreview.vue'
-import { Post } from '../types/Post';
+import PostPreview from './postPreview.vue';
 import AddPost from './addPost.vue';
+import { Post } from '../types/Post';
 
-// Приймаємо стан від батька
 defineProps<{
   selectedPost: Post | null;
   isAdding: boolean;
   userId: number;
 }>();
 
-const emit = defineEmits(['close', 'post-added']);
-
-// ВИДАЛЕНО: const selectedPost = ref(...), бо він уже є в defineProps
+const emit = defineEmits<{
+  (e: 'close'): void
+  (e: 'post-added'): void
+  (e: 'delete', postId: number): void
+  (e: 'edit', post: Post): void
+}>();
 </script>
 
 <template>
-    <div class="tile is-parent is-8-desktop Sidebar" :class="{'Sidebar--open': selectedPost || isAdding }">
-      <div class="tile is-child box is-success ">
-        <div class="tile is-child box is-success ">
-          <div class="content">
-            <AddPost 
-              v-if="isAdding" 
-              :userId="userId" 
-              @post-added="emit('post-added')" 
-              @cancel="emit('close')" 
-            />
-            <PostPreview 
-              v-else-if="selectedPost" 
-              :post="selectedPost" 
-              @close="emit('close')" 
-            />
-          </div>
-        </div>
+  <div
+    class="tile is-parent is-8-desktop Sidebar"
+    :class="{ 'Sidebar--open': selectedPost || isAdding }"
+  >
+    <div class="tile is-child box is-success">
+      <div class="content">
+        <AddPost
+          v-if="isAdding"
+          :userId="userId"
+          @post-added="emit('post-added')"
+          @cancel="emit('close')"
+        />
+        <PostPreview
+          v-else-if="selectedPost"
+          :post="selectedPost"
+          @close="emit('close')"
+          @delete="(id) => emit('delete', id)"
+          @edit="(post) => emit('edit', post)"
+        />
       </div>
     </div>
+  </div>
 </template>
 
-<style scoped lang="scss"> 
+<style scoped lang="scss">
 .Sidebar {
   overflow: hidden;
   opacity: 0;
@@ -61,5 +66,4 @@ const emit = defineEmits(['close', 'post-added']);
 .message-body {
   white-space: pre-line;
 }
-
 </style>

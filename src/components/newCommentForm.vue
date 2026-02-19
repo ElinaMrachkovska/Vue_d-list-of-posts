@@ -2,37 +2,83 @@
 import { ref } from 'vue';
 import client from '../utils/http.js';
 import { Comment } from '../types/Comment';
-import InputField from '../blocks/inputField.vue'; // Імпортуємо ваш компонент
+import InputField from '../blocks/inputField.vue'; 
+import textAreaField from '../blocks/textAreaField.vue';
 
 const props = defineProps<{ postId: number }>();
-const emit = defineEmits(['added', 'cancel']);
+const emit = defineEmits<{
+  (e: 'added', comment: Comment): void
+  (e: 'cancel'): void
+}>();
+
 
 const name = ref('');
 const email = ref('');
 const body = ref('');
 const isSubmitting = ref(false);
 
+
+const nameError = ref('');
+const emailError = ref('');
+const bodyError = ref('');
+
 // Очищення форми (кнопка Clear)
 const clearForm = () => {
   name.value = '';
   email.value = '';
   body.value = '';
+  nameError.value = '';
+  emailError.value = '';
+  bodyError.value = '';
+};
+
+const validate = (): boolean => {
+  let isValid = true;
+
+  if (!name.value.trim()) {
+    nameError.value = 'Name is required';
+    isValid = false;
+  } else {
+    nameError.value = '';
+  }
+
+  if (!email.value.trim()) {
+    emailError.value = 'Email is required';
+    isValid = false;
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
+    emailError.value = 'Email is not valid';
+    isValid = false;
+  } else {
+    emailError.value = '';
+  }
+
+  if (!body.value.trim()) {
+    bodyError.value = 'Comment text is required';
+    isValid = false;
+  } else {
+    bodyError.value = '';
+  }
+
+  return isValid;
 };
 
 const handleSubmit = async () => {
+  if (!validate()) return;
+
   isSubmitting.value = true;
   try {
     const response = await client.post<Comment>('/comments', {
       postId: props.postId,
-      name: name.value,
-      email: email.value,
-      body: body.value,
+      name: name.value.trim(),
+      email: email.value.trim(),
+      body: body.value.trim(),
     });
-    
     emit('added', response.data);
-    clearForm();
-  } catch (error) {
-    alert('Failed to send comment');
+    // Очищаємо лише body — ім'я та email залишаємо для зручності
+    body.value = '';
+    bodyError.value = '';
+  } catch {
+    bodyError.value = 'Failed to send comment. Please try again.';
   } finally {
     isSubmitting.value = false;
   }
@@ -46,6 +92,7 @@ const handleSubmit = async () => {
       title="Author Name"
       name="name"
       placeholder="Name Surname"
+      :errorMessage="nameError"
     />
 
     <InputField
@@ -53,34 +100,31 @@ const handleSubmit = async () => {
       title="Author Email"
       name="email"
       placeholder="email@test.com"
+      :errorMessage="emailError"
     />
 
-    <div class="field">
-      <label class="label">Comment Text</label>
-      <div class="control">
-        <textarea 
-          v-model="body" 
-          class="textarea" 
-          required 
-          placeholder="Type comment here"
-        ></textarea>
-      </div>
-    </div>
+    <TextAreaField
+      v-model="body"
+      title="Comment Text"
+      name="body"
+      placeholder="Type comment here"
+      :errorMessage="bodyError"
+    />
 
     <div class="field is-grouped">
       <div class="control">
         <button 
-          type="submit" 
-          class="button is-link" 
-          :class="{'is-loading': isSubmitting}"
+          type="submit"
+          class="button is-link"
+          :class="{ 'is-loading': isSubmitting }"
         >
           Add
         </button>
       </div>
       <div class="control">
-        <button 
-          type="button" 
-          class="button is-link is-light" 
+        <button
+          type="button"
+          class="button is-link is-light"
           @click="clearForm"
         >
           Clear

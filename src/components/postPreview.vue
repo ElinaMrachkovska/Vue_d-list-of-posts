@@ -19,7 +19,6 @@ const isLoading = ref(false);
 const isFormVisible = ref(false);
 const commentsError = ref('');
 
-// Редагування поста прямо в sidebar
 const isEditing = ref(false);
 const editTitle = ref('');
 const editBody = ref('');
@@ -35,6 +34,7 @@ const cancelEdit = () => {
 };
 
 const saveEdit = () => {
+  if (!editTitle.value.trim() || !editBody.value.trim()) return;
   emit('edit', { ...props.post, title: editTitle.value.trim(), body: editBody.value.trim() });
   isEditing.value = false;
 };
@@ -46,7 +46,7 @@ const fetchComments = async (postId: number) => {
     const response = await client.get<Comment[]>(`/comments?postId=${postId}`);
     comments.value = response.data;
   } catch {
-    commentsError.value = 'Failed to load comments.';
+    commentsError.value = 'Something went wrong';
   } finally {
     isLoading.value = false;
   }
@@ -68,85 +68,96 @@ const handleCommentAdded = (newComment: Comment) => {
   comments.value.push(newComment);
 };
 
-const handleCommentDelete = async (id: number) => {
-  try {
-    await client.delete(`/comments/${id}`);
-    comments.value = comments.value.filter(c => c.id !== id);
-  } catch {
-    console.error('Failed to delete comment');
-  }
+// Негайне видалення без очікування сервера (UX)
+const handleCommentDelete = (id: number) => {
+  comments.value = comments.value.filter(c => c.id !== id);
+  client.delete(`/comments/${id}`).catch(() => {
+    console.error('Failed to delete comment on server');
+  });
 };
 </script>
 
 <template>
-  <div class="content">
+  <div class="content" data-cy="PostDetails">
 
-    <!-- Заголовок поста: звичайний вигляд -->
+    <!-- Звичайний перегляд поста -->
     <template v-if="!isEditing">
-      <div class="block is-flex is-justify-content-space-between is-align-items-flex-start">
-        <div>
-          <h2 class="title is-4">#{{ post.id }}: {{ post.title }}</h2>
-          <p>{{ post.body }}</p>
-        </div>
-        <!-- Іконки дій -->
-        <div class="is-flex is-align-items-center" style="gap: 8px; flex-shrink: 0;">
-          <button
-            class="button is-ghost p-1"
-            type="button"
-            title="Edit post"
-            @click="startEdit"
-          >
-            <span class="icon has-text-grey">
-              <i class="fas fa-pen"></i>
+      <div class="block">
+        <div class="is-flex is-justify-content-space-between is-align-items-center">
+          <h2>#{{ post.id }}: {{ post.title }}</h2>
+          <div class="is-flex">
+            <span
+              class="icon is-small is-right is-clickable"
+              @click="startEdit"
+              data-cy="PostEditButton"
+            >
+              <i class="fas fa-pen-to-square"></i>
             </span>
-          </button>
-          <button
-            class="button is-ghost p-1"
-            type="button"
-            title="Delete post"
-            @click="emit('delete', post.id)"
-          >
-            <span class="icon has-text-danger">
+            <span
+              class="icon is-small is-right has-text-danger is-clickable ml-3"
+              @click="emit('delete', post.id)"
+              data-cy="PostDeleteButton"
+            >
               <i class="fas fa-trash"></i>
             </span>
-          </button>
+          </div>
         </div>
+        <p data-cy="PostBody">{{ post.body }}</p>
       </div>
     </template>
 
-    <!-- Заголовок поста: режим редагування -->
+    <!-- Режим редагування поста -->
     <template v-else>
       <div class="block">
-        <div class="field">
-          <label class="label is-small">Title</label>
-          <input v-model="editTitle" class="input" placeholder="Post title" />
-        </div>
-        <div class="field">
-          <label class="label is-small">Body</label>
-          <textarea v-model="editBody" class="textarea" rows="3" placeholder="Post body" />
-        </div>
-        <div class="buttons">
-          <button class="button is-success is-small" type="button" @click="saveEdit">Save</button>
-          <button class="button is-light is-small" type="button" @click="cancelEdit">Cancel</button>
-        </div>
+        <h2>#{{ post.id }}</h2>
+        <form @submit.prevent="saveEdit">
+          <div class="field">
+            <label class="label">Title</label>
+            <div class="control">
+              <input v-model="editTitle" class="input" placeholder="Post title" />
+            </div>
+          </div>
+          <div class="field">
+            <label class="label">Body</label>
+            <div class="control">
+              <textarea v-model="editBody" class="textarea" rows="4" placeholder="Post body" />
+            </div>
+          </div>
+          <div class="field is-grouped">
+            <div class="control">
+              <button type="submit" class="button is-link">Save</button>
+            </div>
+            <div class="control">
+              <button type="button" class="button is-link is-light" @click="cancelEdit">Cancel</button>
+            </div>
+          </div>
+        </form>
       </div>
     </template>
 
     <hr />
 
     <!-- Коментарі -->
-    <div class="block">
-      <h3 class="title is-5">Comments</h3>
+    <div class="block" data-cy="PostComments">
+      <p class="title is-5">Comments:</p>
 
       <Loader v-if="isLoading" />
 
       <template v-else>
-        <div v-if="commentsError" class="notification is-danger is-light">
+        <div
+          v-if="commentsError"
+          class="notification is-danger"
+          data-cy="CommentsError"
+        >
           {{ commentsError }}
         </div>
 
-        <p v-else-if="comments.length === 0" class="has-text-grey">
-          No comments yet.
+        <p
+          v-else-if="comments.length === 0 && !isFormVisible"
+          class="title is-4"
+          data-cy="NoCommentsMessage"
+        >
+          No comments yet
         </p>
 
         <CommentItem
@@ -161,25 +172,17 @@ const handleCommentDelete = async (id: number) => {
             v-if="!isFormVisible"
             class="button is-link"
             type="button"
+            data-cy="WriteCommentButton"
             @click="isFormVisible = true"
           >
             Write a comment
           </button>
 
-          <template v-else>
-            <NewCommentForm
-              :postId="post.id"
-              @added="handleCommentAdded"
-              @cancel="isFormVisible = false"
-            />
-            <button
-              class="button is-light is-small mt-2"
-              type="button"
-              @click="isFormVisible = false"
-            >
-              Close form
-            </button>
-          </template>
+          <NewCommentForm
+            v-else
+            :postId="post.id"
+            @added="handleCommentAdded"
+          />
         </div>
       </template>
     </div>

@@ -17,14 +17,12 @@ const isLoadingPosts = ref(false);
 const isAddingPost = ref(false);
 const postsError = ref<string | null>(null);
 
-
 const handleLogin = async (user: User) => {
   currentUser.value = user;
   isLoadingPosts.value = true;
   postsError.value = null;
   selectedPost.value = null;
   posts.value = [];
-
   try {
     const response = await client.get<Post[]>(`/posts?userId=${user.id}`);
     posts.value = response.data;
@@ -57,39 +55,27 @@ const openAddPost = () => {
   selectedPost.value = null;
 };
 
-// --- Закрити sidebar ---
 const closeSidebar = () => {
   selectedPost.value = null;
   isAddingPost.value = false;
 };
 
-// --- Після успішного створення поста — перезавантажуємо список ---
-const handlePostAdded = async () => {
+const handlePostAdded = (newPost: Post) => {
+  posts.value.push(newPost);
   isAddingPost.value = false;
-  if (currentUser.value) {
-    try {
-      const response = await client.get<Post[]>(`/posts?userId=${currentUser.value.id}`);
-      posts.value = response.data;
-    } catch {
-      console.error('Failed to refresh posts');
-    }
-  }
+  selectedPost.value = newPost;
 };
 
-// --- Видалення поста ---
 const handlePostDelete = async (postId: number) => {
   try {
     await client.delete(`/posts/${postId}`);
     posts.value = posts.value.filter(p => p.id !== postId);
-    if (selectedPost.value?.id === postId) {
-      selectedPost.value = null;
-    }
+    if (selectedPost.value?.id === postId) selectedPost.value = null;
   } catch {
     console.error('Failed to delete post');
   }
 };
 
-// --- Редагування поста ---
 const handlePostEdit = async (updatedPost: Post) => {
   try {
     const response = await client.patch<Post>(`/posts/${updatedPost.id}`, {
@@ -97,12 +83,8 @@ const handlePostEdit = async (updatedPost: Post) => {
       body: updatedPost.body,
     });
     const index = posts.value.findIndex(p => p.id === updatedPost.id);
-    if (index !== -1) {
-      posts.value[index] = response.data;
-    }
-    if (selectedPost.value?.id === updatedPost.id) {
-      selectedPost.value = response.data;
-    }
+    if (index !== -1) posts.value[index] = response.data;
+    if (selectedPost.value?.id === updatedPost.id) selectedPost.value = response.data;
   } catch {
     console.error('Failed to update post');
   }
@@ -110,24 +92,27 @@ const handlePostEdit = async (updatedPost: Post) => {
 </script>
 
 <template>
-  <!-- Екран логіну -->
   <Login v-if="!currentUser" @login="handleLogin" />
 
-  <!-- Головний екран -->
   <template v-else>
     <Header :user="currentUser" @logout="handleLogout" />
 
     <main class="section">
-      <div class="container">
-        <div class="tile is-ancestor">
+      <!-- Без container — щоб tile is-ancestor займав повну ширину -->
+      <div class="tile is-ancestor">
 
-          <!-- Ліва колонка: список постів -->
-          <div class="tile is-parent">
-            <div class="tile is-child box is-success">
+        <div class="tile is-parent">
+          <div class="tile is-child box is-success">
+            <div class="block">
 
-              <div class="block is-flex is-justify-content-space-between is-align-items-center">
-                <h1 class="title is-3">Posts</h1>
-                <button class="button is-link" @click="openAddPost">
+              <div class="block is-flex is-justify-content-space-between">
+                <p class="title">Posts</p>
+                <button
+                  type="button"
+                  class="button is-link"
+                  data-cy="CreateNewPostButton"
+                  @click="openAddPost"
+                >
                   Add New Post
                 </button>
               </div>
@@ -135,11 +120,19 @@ const handlePostEdit = async (updatedPost: Post) => {
               <Loader v-if="isLoadingPosts" />
 
               <template v-else>
-                <div v-if="postsError" class="notification is-danger">
+                <div
+                  v-if="postsError"
+                  class="notification is-danger"
+                  data-cy="PostsLoadingError"
+                >
                   {{ postsError }}
                 </div>
 
-                <div v-else-if="posts.length === 0" class="notification is-warning">
+                <div
+                  v-else-if="posts.length === 0"
+                  class="notification is-warning"
+                  data-cy="NoPostsYet"
+                >
                   No posts yet.
                 </div>
 
@@ -148,23 +141,23 @@ const handlePostEdit = async (updatedPost: Post) => {
                   :posts="posts"
                   :selectedPostId="selectedPost?.id ?? null"
                   @select="togglePost"
-                  @delete="handlePostDelete"
-                  @edit="handlePostEdit"
                 />
               </template>
+
             </div>
           </div>
-
-          <!-- Права колонка: sidebar (AddPost або PostPreview) -->
-          <Sidebar
-            :selectedPost="selectedPost"
-            :isAdding="isAddingPost"
-            :userId="currentUser.id"
-            @close="closeSidebar"
-            @post-added="handlePostAdded"
-          />
-
         </div>
+
+        <Sidebar
+          :selectedPost="selectedPost"
+          :isAdding="isAddingPost"
+          :userId="currentUser.id"
+          @close="closeSidebar"
+          @post-added="handlePostAdded"
+          @delete="handlePostDelete"
+          @edit="handlePostEdit"
+        />
+
       </div>
     </main>
   </template>

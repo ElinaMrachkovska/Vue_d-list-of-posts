@@ -10,3 +10,4 @@ import '../assets/styles/loader.scss';
         </div>
     </div>
 </template>
+

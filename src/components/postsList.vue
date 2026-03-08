@@ -8,34 +8,35 @@ defineProps<{
 
 const emit = defineEmits<{
   (e: 'select', post: Post): void
-  (e: 'delete', postId: number): void
-  (e: 'edit', post: Post): void
 }>();
 </script>
 
 <template>
-  <table class="table is-fullwidth is-striped is-hoverable is-narrow">
-    <thead>
-      <tr class="has-background-link-light">
-        <th>ID</th>
-        <th>Title</th>
-        <th class="has-text-right">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr v-for="post in posts" :key="post.id">
-        <td>{{ post.id }}</td>
-        <td>{{ post.title }}</td>
-        <td class="has-text-right" style="white-space: nowrap;">
-          <button
-            class="button is-link is-small is-light"
-            :class="{ 'is-light': selectedPostId !== post.id }"
-            @click="emit('select', post)"
-          >
-            {{ selectedPostId === post.id ? 'Close' : 'Open' }}
-          </button>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+  <div class="block">
+    <table class="table is-fullwidth is-striped is-hoverable is-narrow">
+      <thead>
+        <tr class="has-background-link-light">
+          <th>ID</th>
+          <th>Title</th>
+          <th class="has-text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="post in posts" :key="post.id">
+          <td>{{ post.id }}</td>
+          <td>{{ post.title }}</td>
+          <td class="has-text-right is-vcentered">
+            <button
+              type="button"
+              class="button is-link"
+              :class="{ 'is-light': selectedPostId !== post.id }"
+              @click="emit('select', post)"
+            >
+              {{ selectedPostId === post.id ? 'Close' : 'Open' }}
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </template>

@@ -2,67 +2,68 @@
 import { ref } from 'vue';
 import client from '../utils/http.js';
 import { Comment } from '../types/Comment';
-import InputField from '../blocks/inputField.vue'; 
-import textAreaField from '../blocks/textAreaField.vue';
+import InputField from '../blocks/inputField.vue';
+import TextAreaField from '../blocks/textAreaField.vue';
 
 const props = defineProps<{ postId: number }>();
 const emit = defineEmits<{
   (e: 'added', comment: Comment): void
-  (e: 'cancel'): void
 }>();
-
 
 const name = ref('');
 const email = ref('');
 const body = ref('');
 const isSubmitting = ref(false);
 
-
+// Помилки — показуємо ТІЛЬКИ після спроби сабміту
 const nameError = ref('');
 const emailError = ref('');
 const bodyError = ref('');
 
-// Очищення форми (кнопка Clear)
-const clearForm = () => {
-  name.value = '';
-  email.value = '';
-  body.value = '';
-  nameError.value = '';
-  emailError.value = '';
-  bodyError.value = '';
+// Очищення помилки при зміні поля (watch через v-model автоматично тригерить @update:modelValue)
+// Тому використовуємо окремі handlers
+
+const onNameChange = (val: string) => {
+  name.value = val;
+  if (nameError.value) nameError.value = ''; // прибираємо помилку при зміні
+};
+
+const onEmailChange = (val: string) => {
+  email.value = val;
+  if (emailError.value) emailError.value = '';
+};
+
+const onBodyChange = (val: string) => {
+  body.value = val;
+  if (bodyError.value) bodyError.value = '';
 };
 
 const validate = (): boolean => {
-  let isValid = true;
+  let valid = true;
 
   if (!name.value.trim()) {
     nameError.value = 'Name is required';
-    isValid = false;
-  } else {
-    nameError.value = '';
+    valid = false;
   }
 
   if (!email.value.trim()) {
     emailError.value = 'Email is required';
-    isValid = false;
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
+    valid = false;
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
     emailError.value = 'Email is not valid';
-    isValid = false;
-  } else {
-    emailError.value = '';
+    valid = false;
   }
 
   if (!body.value.trim()) {
     bodyError.value = 'Comment text is required';
-    isValid = false;
-  } else {
-    bodyError.value = '';
+    valid = false;
   }
 
-  return isValid;
+  return valid;
 };
 
 const handleSubmit = async () => {
+  // Показуємо помилки лише після сабміту
   if (!validate()) return;
 
   isSubmitting.value = true;
@@ -74,7 +75,7 @@ const handleSubmit = async () => {
       body: body.value.trim(),
     });
     emit('added', response.data);
-    // Очищаємо лише body — ім'я та email залишаємо для зручності
+    // Зберігаємо name і email, очищаємо тільки body
     body.value = '';
     bodyError.value = '';
   } catch {
@@ -83,12 +84,24 @@ const handleSubmit = async () => {
     isSubmitting.value = false;
   }
 };
+
+// Clear — очищає всі поля І всі помилки
+const handleClear = () => {
+  name.value = '';
+  email.value = '';
+  body.value = '';
+  nameError.value = '';
+  emailError.value = '';
+  bodyError.value = '';
+};
 </script>
 
 <template>
-  <form @submit.prevent="handleSubmit" class="box has-background-light">
+  <form @submit.prevent="handleSubmit" data-cy="NewCommentForm">
+
     <InputField
-      v-model="name"
+      :modelValue="name"
+      @update:modelValue="onNameChange"
       title="Author Name"
       name="name"
       placeholder="Name Surname"
@@ -96,7 +109,8 @@ const handleSubmit = async () => {
     />
 
     <InputField
-      v-model="email"
+      :modelValue="email"
+      @update:modelValue="onEmailChange"
       title="Author Email"
       name="email"
       placeholder="email@test.com"
@@ -104,7 +118,8 @@ const handleSubmit = async () => {
     />
 
     <TextAreaField
-      v-model="body"
+      :modelValue="body"
+      @update:modelValue="onBodyChange"
       title="Comment Text"
       name="body"
       placeholder="Type comment here"
@@ -113,10 +128,11 @@ const handleSubmit = async () => {
 
     <div class="field is-grouped">
       <div class="control">
-        <button 
+        <button
           type="submit"
           class="button is-link"
           :class="{ 'is-loading': isSubmitting }"
+          data-cy="NewCommentSubmit"
         >
           Add
         </button>
@@ -125,11 +141,13 @@ const handleSubmit = async () => {
         <button
           type="button"
           class="button is-link is-light"
-          @click="clearForm"
+          @click="handleClear"
+          data-cy="NewCommentReset"
         >
           Clear
         </button>
       </div>
     </div>
+
   </form>
 </template>

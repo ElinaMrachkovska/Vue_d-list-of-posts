@@ -1,19 +1,20 @@
-* {
-  box-sizing: border-box;
-}
-
 .Sidebar {
   overflow: hidden;
   opacity: 0;
-  min-width: 0 !important;
-  max-width: 0 !important;
-  padding: 0 !important;
-  transition: max-width 0.5s ease-in-out, opacity 0.5s ease-in-out;
+  transition-property: max-width, opacity;
+  transition-duration: 0.5s;
+  transition-timing-function: ease-in-out;
+
+  @media (min-width: 769px) {
+    max-width: 0;
+  }
 
   &--open {
     opacity: 1;
-    max-width: 50% !important;
-    padding: 0.75rem !important;
+
+    @media (min-width: 769px) {
+      max-width: 50%;
+    }
   }
 }
 

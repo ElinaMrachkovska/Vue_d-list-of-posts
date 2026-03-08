@@ -4,110 +4,161 @@ import { User } from './types/User';
 import { Post } from './types/Post';
 import client from './utils/http.js';
 import Login from './components/login.vue';
+import Header from './blocks/header.vue';
 import PostsList from './components/postsList.vue';
-import PostPreview from './components/postPreview.vue';
-import AddPost from './components/addPost.vue'; // Твій компонент
-import Loader from './components/loader.vue'; 
 import Sidebar from './components/sidebar.vue';
+import Loader from './components/loader.vue';
 import './App.scss';
 
 const currentUser = ref<User | null>(null);
 const posts = ref<Post[]>([]);
 const selectedPost = ref<Post | null>(null);
 const isLoadingPosts = ref(false);
-const isAddingPost = ref(false); // Стан для показу форми
-const postsError = ref<string | null>(null); // Текст помилки при завантаженні постів
+const isAddingPost = ref(false);
+const postsError = ref<string | null>(null);
 
 const handleLogin = async (user: User) => {
   currentUser.value = user;
   isLoadingPosts.value = true;
-  postsError.value = null; // очистити попередні помилки
+  postsError.value = null;
   selectedPost.value = null;
-  
+  posts.value = [];
   try {
     const response = await client.get<Post[]>(`/posts?userId=${user.id}`);
     posts.value = response.data;
-  } catch (error) {
-    // Встановлюємо людський, зрозумілий текст для UI і логируемо один раз
+  } catch {
     postsError.value = 'Failed to load posts. Please try again later.';
-    console.error('Error loading posts', error);
   } finally {
     isLoadingPosts.value = false;
   }
 };
 
-const togglePost = (post: Post | null) => {
-  if (selectedPost.value?.id === post?.id) {
+const handleLogout = () => {
+  currentUser.value = null;
+  posts.value = [];
+  selectedPost.value = null;
+  isAddingPost.value = false;
+  postsError.value = null;
+};
+
+const togglePost = (post: Post) => {
+  if (selectedPost.value?.id === post.id) {
     selectedPost.value = null;
   } else {
     selectedPost.value = post;
-    isAddingPost.value = false; // Закриваємо форму додавання, якщо відкриваємо перегляд
+    isAddingPost.value = false;
   }
 };
 
+const openAddPost = () => {
+  isAddingPost.value = true;
+  selectedPost.value = null;
+};
+
+const closeSidebar = () => {
+  selectedPost.value = null;
+  isAddingPost.value = false;
+};
+
 const handlePostAdded = (newPost: Post) => {
-  posts.value.push(newPost); // Додаємо новий пост у список
-  isAddingPost.value = false; // Закриваємо форму
+  posts.value.push(newPost);
+  isAddingPost.value = false;
+  selectedPost.value = newPost;
+};
+
+const handlePostDelete = async (postId: number) => {
+  try {
+    await client.delete(`/posts/${postId}`);
+    posts.value = posts.value.filter(p => p.id !== postId);
+    if (selectedPost.value?.id === postId) selectedPost.value = null;
+  } catch {
+    console.error('Failed to delete post');
+  }
+};
+
+const handlePostEdit = async (updatedPost: Post) => {
+  try {
+    const response = await client.patch<Post>(`/posts/${updatedPost.id}`, {
+      title: updatedPost.title,
+      body: updatedPost.body,
+    });
+    const index = posts.value.findIndex(p => p.id === updatedPost.id);
+    if (index !== -1) posts.value[index] = response.data;
+    if (selectedPost.value?.id === updatedPost.id) selectedPost.value = response.data;
+  } catch {
+    console.error('Failed to update post');
+  }
 };
 </script>
 
 <template>
   <Login v-if="!currentUser" @login="handleLogin" />
 
-  <main v-else class="section">
-    <div class="container">
+  <template v-else>
+    <Header :user="currentUser" @logout="handleLogout" />
+
+    <main class="section">
+      <!-- Без container — щоб tile is-ancestor займав повну ширину -->
       <div class="tile is-ancestor">
+
         <div class="tile is-parent">
           <div class="tile is-child box is-success">
-            <div class="block is-flex is-justify-content-space-between is-align-items-center">
-              <h1 class="title is-3">Posts of {{ currentUser.name }}</h1>
-              <button class="button is-light" @click="currentUser = null">Logout</button>
-            </div>
-
             <div class="block">
-              <button 
-                v-if="!isAddingPost"
-                class="button is-link is-fullwidth mb-4" 
-                @click="isAddingPost = true; selectedPost = null"
-              >
-                Add Post
-              </button>
+
+              <div class="block is-flex is-justify-content-space-between">
+                <p class="title">Posts</p>
+                <button
+                  type="button"
+                  class="button is-link"
+                  data-cy="CreateNewPostButton"
+                  @click="openAddPost"
+                >
+                  Add New Post
+                </button>
+              </div>
 
               <Loader v-if="isLoadingPosts" />
-              
-              <template v-else>
-                <AddPost 
-                  v-if="isAddingPost" 
-                  :userId="currentUser.id"
-                  @added="handlePostAdded"
-                  @cancel="isAddingPost = false"
-                />
 
-                <div v-if="postsError && !isAddingPost" class="notification is-danger">
+              <template v-else>
+                <div
+                  v-if="postsError"
+                  class="notification is-danger"
+                  data-cy="PostsLoadingError"
+                >
                   {{ postsError }}
                 </div>
 
-                <div v-else-if="posts.length === 0 && !isAddingPost" class="notification is-warning">
+                <div
+                  v-else-if="posts.length === 0"
+                  class="notification is-warning"
+                  data-cy="NoPostsYet"
+                >
                   No posts yet.
                 </div>
 
-                <PostsList 
+                <PostsList
                   v-if="posts.length > 0"
-                  :posts="posts" 
-                  :selectedPostId="selectedPost?.id || null"
+                  :posts="posts"
+                  :selectedPostId="selectedPost?.id ?? null"
                   @select="togglePost"
                 />
               </template>
+
             </div>
           </div>
         </div>
 
-        <div class="tile is-parent is-8-desktop Sidebar" :class="{ 'Sidebar--open': !!selectedPost }">
-          <div class="tile is-child box is-success">
-            <PostPreview v-if="selectedPost" :post="selectedPost" />
-          </div>
-        </div>
+        <Sidebar
+          :selectedPost="selectedPost"
+          :isAdding="isAddingPost"
+          :userId="currentUser.id"
+          @close="closeSidebar"
+          @post-added="handlePostAdded"
+          @delete="handlePostDelete"
+          @edit="handlePostEdit"
+        />
+
       </div>
-    </div>
-  </main>
+    </main>
+  </template>
 </template>

@@ -2,152 +2,90 @@
 import { ref } from 'vue';
 import client from '../utils/http.js';
 import { Comment } from '../types/Comment';
-import InputField from '../blocks/inputField.vue';
-import TextAreaField from '../blocks/textAreaField.vue';
+import InputField from '../blocks/inputField.vue'; // Імпортуємо ваш компонент
 
 const props = defineProps<{ postId: number }>();
-const emit = defineEmits<{
-  (e: 'added', comment: Comment): void
-}>();
+const emit = defineEmits(['added', 'cancel']);
 
 const name = ref('');
 const email = ref('');
 const body = ref('');
 const isSubmitting = ref(false);
 
-// Помилки — показуємо ТІЛЬКИ після спроби сабміту
-const nameError = ref('');
-const emailError = ref('');
-const bodyError = ref('');
-
-// Очищення помилки при зміні поля (watch через v-model автоматично тригерить @update:modelValue)
-// Тому використовуємо окремі handlers
-
-const onNameChange = (val: string) => {
-  name.value = val;
-  if (nameError.value) nameError.value = ''; // прибираємо помилку при зміні
-};
-
-const onEmailChange = (val: string) => {
-  email.value = val;
-  if (emailError.value) emailError.value = '';
-};
-
-const onBodyChange = (val: string) => {
-  body.value = val;
-  if (bodyError.value) bodyError.value = '';
-};
-
-const validate = (): boolean => {
-  let valid = true;
-
-  if (!name.value.trim()) {
-    nameError.value = 'Name is required';
-    valid = false;
-  }
-
-  if (!email.value.trim()) {
-    emailError.value = 'Email is required';
-    valid = false;
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim())) {
-    emailError.value = 'Email is not valid';
-    valid = false;
-  }
-
-  if (!body.value.trim()) {
-    bodyError.value = 'Comment text is required';
-    valid = false;
-  }
-
-  return valid;
+// Очищення форми (кнопка Clear)
+const clearForm = () => {
+  name.value = '';
+  email.value = '';
+  body.value = '';
 };
 
 const handleSubmit = async () => {
-  // Показуємо помилки лише після сабміту
-  if (!validate()) return;
-
   isSubmitting.value = true;
   try {
     const response = await client.post<Comment>('/comments', {
       postId: props.postId,
-      name: name.value.trim(),
-      email: email.value.trim(),
-      body: body.value.trim(),
+      name: name.value,
+      email: email.value,
+      body: body.value,
     });
+    
     emit('added', response.data);
-    // Зберігаємо name і email, очищаємо тільки body
-    body.value = '';
-    bodyError.value = '';
-  } catch {
-    bodyError.value = 'Failed to send comment. Please try again.';
+    clearForm();
+  } catch (error) {
+    alert('Failed to send comment');
   } finally {
     isSubmitting.value = false;
   }
 };
-
-// Clear — очищає всі поля І всі помилки
-const handleClear = () => {
-  name.value = '';
-  email.value = '';
-  body.value = '';
-  nameError.value = '';
-  emailError.value = '';
-  bodyError.value = '';
-};
 </script>
 
 <template>
-  <form @submit.prevent="handleSubmit" data-cy="NewCommentForm">
-
+  <form @submit.prevent="handleSubmit" class="box has-background-light">
     <InputField
-      :modelValue="name"
-      @update:modelValue="onNameChange"
+      v-model="name"
       title="Author Name"
       name="name"
       placeholder="Name Surname"
-      :errorMessage="nameError"
     />
 
     <InputField
-      :modelValue="email"
-      @update:modelValue="onEmailChange"
+      v-model="email"
       title="Author Email"
       name="email"
       placeholder="email@test.com"
-      :errorMessage="emailError"
     />
 
-    <TextAreaField
-      :modelValue="body"
-      @update:modelValue="onBodyChange"
-      title="Comment Text"
-      name="body"
-      placeholder="Type comment here"
-      :errorMessage="bodyError"
-    />
+    <div class="field">
+      <label class="label">Comment Text</label>
+      <div class="control">
+        <textarea 
+          v-model="body" 
+          class="textarea" 
+          required 
+          placeholder="Type comment here"
+        ></textarea>
+      </div>
+    </div>
 
     <div class="field is-grouped">
       <div class="control">
-        <button
-          type="submit"
-          class="button is-link"
-          :class="{ 'is-loading': isSubmitting }"
-          data-cy="NewCommentSubmit"
+        <button 
+          type="submit" 
+          class="button is-link" 
+          :class="{'is-loading': isSubmitting}"
         >
           Add
         </button>
       </div>
       <div class="control">
-        <button
-          type="button"
-          class="button is-link is-light"
-          @click="handleClear"
-          data-cy="NewCommentReset"
+        <button 
+          type="button" 
+          class="button is-link is-light" 
+          @click="clearForm"
         >
           Clear
         </button>
       </div>
     </div>
-
   </form>
 </template>
